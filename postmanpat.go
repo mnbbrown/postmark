@@ -1,4 +1,4 @@
-package postmanpat
+package postmark
 
 import (
 	"bufio"
