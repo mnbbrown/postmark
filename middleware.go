@@ -13,7 +13,7 @@ const ctxKey int = 1
 func Middleware(c *Client) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			ctx := engine.GetContext(req).Set(ctxKey, c)
+			engine.GetContext(req).Set(ctxKey, c)
 			next.ServeHTTP(rw, req)
 		})
 	}
