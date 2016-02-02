@@ -2,13 +2,12 @@ package postmark
 
 import (
 	"github.com/mnbbrown/engine"
-	"golang.org/x/net/context"
 	"net/http"
 )
 
 type key int
 
-const ctxKey int = 1
+const ctxKey key = 1
 
 func Middleware(c *Client) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -19,7 +18,7 @@ func Middleware(c *Client) func(http.Handler) http.Handler {
 	}
 }
 
-func FromContext(ctx context.Context) (Client, bool) {
-	cfg, ok := ctx.Value(ctxKey).(Client)
+func FromContext(ctx *engine.Context) (*Client, bool) {
+	cfg, ok := ctx.Value(ctxKey).(*Client)
 	return cfg, ok
 }
