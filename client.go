@@ -103,3 +103,11 @@ func (c *Client) SendMessage(msg *Message) (*PostmarkResponse, error) {
 	}
 	return c.Do(req)
 }
+
+func (c *Client) GetServer() (*PostmarkResponse, error) {
+	req, err := c.NewRequest("GET", "/server", nil)
+	if err != nil {
+		return nil, err
+	}
+	return c.Do(req)
+}
