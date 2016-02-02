@@ -7,4 +7,5 @@ build:
         - GOARCH=amd64
         - CGO_ENABLED=0
     commands:
+        - go get -t -v ./...
         - go test
