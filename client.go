@@ -8,6 +8,7 @@ import (
 	"net/url"
 )
 
+// Client is a postmark client
 type Client struct {
 	Token       string
 	FromAddress string
@@ -16,8 +17,9 @@ type Client struct {
 	UserAgent   string
 }
 
+// NewClient creates a new postmark client
 func NewClient(token string, fromaddr string) *Client {
-	bu, _ := url.Parse(DEFAULT_BASE_URL)
+	bu, _ := url.Parse("https://api.postmarkapp.com")
 	return &Client{
 		Token:       token,
 		FromAddress: fromaddr,
@@ -26,14 +28,14 @@ func NewClient(token string, fromaddr string) *Client {
 	}
 }
 
-func (c *Client) Do(req *http.Request) (*PostmarkResponse, error) {
+func (c *Client) do(req *http.Request) (*Response, error) {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	pr := &PostmarkResponse{}
+	pr := &Response{}
 	if err = json.NewDecoder(resp.Body).Decode(&pr); err != nil {
 		return nil, err
 	}
@@ -44,7 +46,7 @@ func (c *Client) Do(req *http.Request) (*PostmarkResponse, error) {
 	return pr, nil
 }
 
-func (c *Client) NewRequest(method string, urlStr string, body interface{}) (*http.Request, error) {
+func (c *Client) newRequest(method string, urlStr string, body interface{}) (*http.Request, error) {
 	rel, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
@@ -77,37 +79,31 @@ type templateReq struct {
 	To            string
 }
 
-func (c *Client) SendTemplate(templateId int, to string, model interface{}) (*PostmarkResponse, error) {
+// SendTemplate sends a postmark template
+func (c *Client) SendTemplate(templateID int, to string, model interface{}) (*Response, error) {
 	r := &templateReq{
-		TemplateID:    templateId,
+		TemplateID:    templateID,
 		TemplateModel: model,
 		From:          c.FromAddress,
 		To:            to,
 	}
-	req, err := c.NewRequest("POST", "/email/withTemplate/", r)
+	req, err := c.newRequest("POST", "/email/withTemplate/", r)
 	if err != nil {
 		return nil, err
 	}
-	return c.Do(req)
+	return c.do(req)
 }
 
-func (c *Client) SendMessage(msg *Message) (*PostmarkResponse, error) {
-	pm, err := msg.Prepare()
+// SendMessage sends a postmark message
+func (c *Client) SendMessage(msg *Message) (*Response, error) {
+	pm, err := newPostmarkMessage(msg)
 	pm.From = c.FromAddress
 	if err != nil {
 		return nil, err
 	}
-	req, err := c.NewRequest("POST", "/email", pm)
+	req, err := c.newRequest("POST", "/email", pm)
 	if err != nil {
 		return nil, err
 	}
-	return c.Do(req)
-}
-
-func (c *Client) GetServer() (*PostmarkResponse, error) {
-	req, err := c.NewRequest("GET", "/server", nil)
-	if err != nil {
-		return nil, err
-	}
-	return c.Do(req)
+	return c.do(req)
 }

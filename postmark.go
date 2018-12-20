@@ -13,19 +13,16 @@ import (
 	"time"
 )
 
-const (
-	VERSION          = "0.0.1"
-	DEFAULT_BASE_URL = "https://api.postmarkapp.com"
-)
-
+// Message is an email message
 type Message struct {
 	Subject     string
-	HtmlBody    string
+	HTMLBody    string
 	TextBody    string
 	To          []*mail.Address
 	Attachments []*Attachment
 }
 
+// AddAttachment is a helper to add a file attachment to an email
 func (m *Message) AddAttachment(name string, filename string) error {
 	a := &Attachment{}
 	a.Name = name
@@ -38,10 +35,12 @@ func (m *Message) AddAttachment(name string, filename string) error {
 	return nil
 }
 
+// NewMessage creates a new mail message
 func NewMessage() *Message {
 	return &Message{}
 }
 
+// AddTo adds a new recipient to the message
 func (m *Message) AddTo(address string) error {
 	addr, err := mail.ParseAddress(address)
 	if err != nil {
@@ -51,6 +50,7 @@ func (m *Message) AddTo(address string) error {
 	return nil
 }
 
+// Attachment is a Message attachnment backed by a file
 type Attachment struct {
 	Name string
 	File *os.File
@@ -64,33 +64,33 @@ func joinAddresses(addrs []*mail.Address) string {
 	return strings.Join(astr, ",")
 }
 
-func (m *Message) Prepare() (*PostmarkMessage, error) {
-	pm := &PostmarkMessage{}
+func newPostmarkMessage(m *Message) (*postmarkMessage, error) {
+	pm := &postmarkMessage{}
 	pm.Subject = m.Subject
 	pm.To = joinAddresses(m.To)
-	pm.HtmlBody = m.HtmlBody
+	pm.HTMLBody = m.HTMLBody
 	pm.TextBody = m.TextBody
 	for _, a := range m.Attachments {
-		pm.AddAttachment(a)
+		pm.addAttachment(a)
 	}
 	return pm, nil
 }
 
-type PostmarkMessage struct {
+type postmarkMessage struct {
 	From        string                `json:",omitempty"`
 	To          string                `json:",omitempty"`
 	Cc          string                `json:",omitempty"`
 	Bcc         string                `json:",omitempty"`
 	Subject     string                `json:",omitempty"`
-	HtmlBody    string                `json:",omitempty"`
+	HTMLBody    string                `json:",omitempty"`
 	TextBody    string                `json:",omitempty"`
 	ReplyTo     string                `json:",omitempty"`
 	TrackOpens  bool                  `json:",omitempty"`
-	Attachments []*PostmarkAttachment `json:",omitempty"`
+	Attachments []*postmarkAttachment `json:",omitempty"`
 }
 
-func (p *PostmarkMessage) AddAttachment(a *Attachment) (bool, error) {
-	pa := &PostmarkAttachment{}
+func (p *postmarkMessage) addAttachment(a *Attachment) (bool, error) {
+	pa := &postmarkAttachment{}
 
 	pa.Name = a.Name
 	st, err := a.File.Stat()
@@ -113,31 +113,17 @@ func (p *PostmarkMessage) AddAttachment(a *Attachment) (bool, error) {
 	return true, nil
 }
 
-type PostmarkAttachment struct {
+type postmarkAttachment struct {
 	Name        string
 	Content     string
 	ContentType string
 }
 
-type PostmarkResponse struct {
+// Response is recieved by postmark when an email is submitted for sending
+type Response struct {
 	To          string
 	SubmittedAt time.Time
 	MessageID   string
 	ErrorCode   int
 	Message     string
-}
-
-type PostmarkOpenHook struct {
-	MessageID string
-	Client    struct {
-		Name    string
-		Company string
-		Family  string
-	}
-	OS struct {
-		Name    string
-		Company string
-		Family  string
-	}
-	Platform string
 }

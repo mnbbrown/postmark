@@ -1,24 +1,32 @@
 package postmark
 
-import (
-	log "github.com/Sirupsen/logrus"
-)
+type task struct {
+	Message *Message
+}
 
-var TaskQueue = make(chan Task, 100)
+var taskQueue = make(chan task, 100)
 
+// Dispatcher is a worker queue
 type Dispatcher struct {
-	WorkerPool chan chan Task
+	workerPool chan chan task
 	Client     *Client
 }
 
-func NewDispatcher(maxWorkers int, client *Client) *Dispatcher {
-	pool := make(chan chan Task, maxWorkers)
+// NewDispatcher creates a new dispater with workers
+func NewDispatcher(maxworkers int, client *Client) *Dispatcher {
+	pool := make(chan chan task, maxworkers)
 	return &Dispatcher{pool, client}
 }
 
+// Add adds a new task to the queue
+func (d *Dispatcher) Add(m *Message) {
+	taskQueue <- task{m}
+}
+
+// Run starts the dispatcher
 func (d *Dispatcher) Run() {
-	for i := 0; i < cap(d.WorkerPool); i++ {
-		worker := NewWorker(i, d.WorkerPool, d.Client)
+	for i := 0; i < cap(d.workerPool); i++ {
+		worker := newWorker(i, d.workerPool, d.Client)
 		worker.Start()
 	}
 	go d.dispatch()
@@ -27,43 +35,38 @@ func (d *Dispatcher) Run() {
 func (d *Dispatcher) dispatch() {
 	for {
 		select {
-		case task := <-TaskQueue:
-			go func(task Task) {
-				taskChannel := <-d.WorkerPool
-				taskChannel <- task
-			}(task)
+		case ts := <-taskQueue:
+			go func(t task) {
+				taskChannel := <-d.workerPool
+				taskChannel <- t
+			}(ts)
 		}
 	}
 }
 
-type Task struct {
-	Message *Message
-}
-
-type Worker struct {
+type worker struct {
 	ID         int
 	Client     *Client
-	WorkerPool chan chan Task
+	workerPool chan chan task
 	quit       chan bool
 }
 
-func NewWorker(id int, wq chan chan Task, client *Client) Worker {
-	return Worker{
+func newWorker(id int, wq chan chan task, client *Client) worker {
+	return worker{
 		ID:         id,
-		WorkerPool: wq,
+		workerPool: wq,
 		Client:     client,
 		quit:       make(chan bool),
 	}
 }
 
-func (w Worker) Start() {
-	log.Printf("Starting email worker %v", w.ID)
+func (w worker) Start() {
 	go func() {
 		for {
-			w.WorkerPool <- TaskQueue
+			w.workerPool <- taskQueue
 
 			select {
-			case task := <-TaskQueue:
+			case task := <-taskQueue:
 				w.Client.SendMessage(task.Message)
 			case <-w.quit:
 				return
@@ -72,8 +75,7 @@ func (w Worker) Start() {
 	}()
 }
 
-func (w Worker) Stop() {
-	log.Println("Stopping email worker %v", w.ID)
+func (w worker) Stop() {
 	go func() {
 		w.quit <- true
 	}()
